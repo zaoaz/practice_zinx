@@ -1,7 +1,6 @@
 package znet
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"zinx/ziface"
@@ -17,17 +16,21 @@ type Server struct {
 	IP string
 	//port
 	Port int
+	//当前server添加一个router server链接对应的处理业务
+	Router ziface.IRouter
 }
 
+//---------------------
 //定义当前客户端绑定的handler api（目前写死，后续修改成成从demo定义）
-func CalllBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
-	fmt.Printf("[conn handler] CalllBackToClient \n")
-	if _, err := conn.Write(data[:cnt]); err != nil {
-		fmt.Printf("write back buf err ", err)
-		return errors.New("CalllBackToClient error \n")
-	}
-	return nil
-}
+//func CalllBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
+//	fmt.Printf("[conn handler] CalllBackToClient \n")
+//	if _, err := conn.Write(data[:cnt]); err != nil {
+//		fmt.Printf("write back buf err ", err)
+//		return errors.New("CalllBackToClient error \n")
+//	}
+//	return nil
+//}
+//--------------------
 
 //iserver 接口实现
 func (s *Server) Start() {
@@ -58,7 +61,7 @@ func (s *Server) Start() {
 			}
 			//连接建立成功 ，回显客户端发送的信息(长度限制512字节)
 			//将处理新链接业务方法和链接绑定，得到链接模块
-			dealConn := NewConnection(conn, cid, CalllBackToClient)
+			dealConn := NewConnection(conn, cid, s.Router)
 			cid++
 			go dealConn.Start()
 			//go func() {
@@ -99,6 +102,11 @@ func (s *Server) Serve() {
 	select {}
 }
 
+func (s *Server) AddRouter(router ziface.IRouter) {
+	s.Router = router
+	fmt.Println("add router success")
+}
+
 //初始化 server模块
 func NewServer(name string) ziface.IServer {
 	s := &Server{
@@ -106,6 +114,7 @@ func NewServer(name string) ziface.IServer {
 		IPVersion: "tcp4",
 		IP:        "0.0.0.0",
 		Port:      8999,
+		Router:    nil,
 	}
 	return s
 }
