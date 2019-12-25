@@ -3,6 +3,7 @@ package znet
 import (
 	"fmt"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -34,12 +35,12 @@ func (c *Connection) Start() {
 }
 func (c *Connection) StartReader() {
 	fmt.Printf("reader goroutine is running\n")
-	defer fmt.Printf("connId  = %d is stop reader is exit ,remote add is %s \n", c.RemoteAddr().String())
+	defer fmt.Printf("connId  = %d is stop reader is exit ,remote add is %s \n", c.ConnId, c.RemoteAddr())
 	defer c.Stop()
 
 	for {
 		//读取客户端数据到buf中
-		buf := make([]byte, 512)
+		buf := make([]byte, utils.GlobalObject.MaxPackageSize)
 		_, err := c.Conn.Read(buf)
 		if err != nil {
 			fmt.Println("receive buff err ", err)
