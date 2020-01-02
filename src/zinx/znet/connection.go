@@ -1,9 +1,10 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
-	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -40,13 +41,15 @@ func (c *Connection) StartReader() {
 
 	for {
 		//读取客户端数据到buf中
-		buf := make([]byte, utils.GlobalObject.MaxPackageSize)
-		_, err := c.Conn.Read(buf)
-		if err != nil {
-			fmt.Println("receive buff err ", err)
-			continue
-		}
-		//---------------
+		//------------------v0.4
+		//buf := make([]byte, utils.GlobalObject.MaxPackageSize)
+		//_, err := c.Conn.Read(buf)
+		//if err != nil {
+		//	fmt.Println("receive buff err ", err)
+		//	continue
+		//}
+		//------------------------
+		//--------------- v0.3
 		//fmt.Printf("receive buff  %s \n", buf[:cnt])
 		////调用当前链接绑定的handleAPI
 		//if err := c.handelAPI(c.Conn, buf, cnt); err != nil {
@@ -55,10 +58,36 @@ func (c *Connection) StartReader() {
 		//}
 		//----------------------
 
+		//创建拆包解包对象
+		//v0.5
+		dp := NewDataPack()
+		//读取客户端的msg head 二进制流 8字节
+		headData := make([]byte, dp.GetHeadLen())
+		if _, err := io.ReadFull(c.GetTcpConnection(), headData); err != nil {
+			fmt.Println("ConnId    ", c.ConnId, " read head error ", err)
+			break
+		}
+		//得到msg进行拆包  获得id 消息长度 放到msg对象种
+		msg, err := dp.UnPack(headData)
+		if err != nil {
+			fmt.Println("unpack msg  error ", err)
+		}
+		//根据datalen 再次读取data，放在msg.data中
+		var data []byte
+		if msg.GetMsgLen() > 0 {
+			data = make([]byte, msg.GetMsgLen())
+			if _, err := io.ReadFull(c.GetTcpConnection(), data); err != nil {
+				fmt.Println("ConnId    ", c.ConnId, " read msg data error ", err)
+				break
+			}
+
+		}
+		msg.SetData(data)
+
 		//得到当前链接request
 		req := Request{
 			conn: c,
-			data: buf,
+			msg:  msg,
 		}
 		//执行注册的路由方法
 		go func(request ziface.IRequest) {
@@ -99,9 +128,22 @@ func (c *Connection) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
 
-//发送数据给客户端
-func (c *Connection) Send(data []byte) error {
-	//c.Send(data);
+//提供sendmsg方法 把发往客户端的数据进行封包处理 再发送
+func (c *Connection) SendMsg(msgId uint32, data []byte) error {
+	if c.isClose == true {
+		return errors.New("connection cloese when send msg")
+	}
+	//将data进行封包 msg datalen/msgid
+	dp := NewDataPack()
+
+	binaryMsg, err := dp.Pack(NewMsgPackage(msgId, data))
+	if err == nil {
+		return errors.New("connection cloese when package msg")
+	}
+	if _, err := c.Conn.Write(binaryMsg); err != nil {
+		fmt.Println("write msg id", msgId, " error ", err)
+	}
+
 	return nil
 }
 func NewConnection(conn *net.TCPConn, connId uint32, router ziface.IRouter) ziface.IConnection {

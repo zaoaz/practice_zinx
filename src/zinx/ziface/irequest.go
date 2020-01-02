@@ -4,6 +4,9 @@ package ziface
 type IRequest interface {
 	//得到当前连接
 	GetConn() IConnection
-	//得到请求数据
+	////得到请求数据
 	GetData() []byte
+
+	//得到请求数据
+	GetMsgId() uint32
 }
