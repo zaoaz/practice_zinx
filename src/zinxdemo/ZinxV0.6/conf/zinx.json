@@ -1,0 +1,8 @@
+{
+  "Host":"127.0.0.1",
+  "TcpPort" :8999,
+  "Name" :"zinx 0.6",
+  "Version" :"0.4",
+  "MaxConn" :20,
+  "MaxPackageSize" :512
+}
